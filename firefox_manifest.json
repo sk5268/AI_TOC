@@ -34,7 +34,10 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "aitoc@aosl.jb"
+      "id": "aitoc@aosl.jb",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }
