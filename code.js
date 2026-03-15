@@ -3,6 +3,8 @@ const hostname = window.location.hostname;
 let PLATFORM = 'gpt';
 if (hostname.includes('gemini.google')) PLATFORM = 'gemini';
 if (hostname.includes('perplexity.ai')) PLATFORM = 'pplx';
+if (hostname.includes('claude.ai')) PLATFORM = 'claude';
+if (hostname.includes('grok.com') || hostname.includes('x.com')) PLATFORM = 'grok';
 
 const PLATFORMS = {
   gpt: {
@@ -25,7 +27,22 @@ const PLATFORMS = {
     PROMPT_TEXTAREA: '#ask-input, textarea',
     URL_REGEX: /perplexity\.ai\/(?:search|thread|hub)\/?([^/?#]+)?/,
     APPEND_TARGET: () => document.querySelector(".erp-sidecar\\:min-h-\\[var\\(--sidecar-content-height\\)\\].erp-tab\\:min-h-screen.min-h-\\[var\\(--page-content-height-without-header\\)\\]") || document.body
+  },
+  claude: {
+    USER_MESSAGE: '[data-testid="user-message"], .font-user-message',
+    SEND_BUTTON: 'button[aria-label="Send Message"]',
+    PROMPT_TEXTAREA: 'div[contenteditable="true"].ProseMirror, div[contenteditable="true"]',
+    URL_REGEX: /claude\.ai\/chat\/([^/?#]+)/,
+    APPEND_TARGET: () => document.body
+  },
+  grok: {
+    USER_MESSAGE: '.items-end .message-bubble, [data-testid="message-content"]',
+    SEND_BUTTON: 'button[aria-label*="Grok"], button[aria-label*="Send"], [data-testid="send-button"]',
+    PROMPT_TEXTAREA: 'textarea, [data-testid="message-input"]',
+    URL_REGEX: /(?:grok\.com\/(?:chat|c)|x\.com\/i\/grok)\/([^/?#]+)/,
+    APPEND_TARGET: () => document.body
   }
+
 };
 
 const CONFIG = PLATFORMS[PLATFORM];
@@ -527,6 +544,7 @@ class QueryExtractor {
   static extractAllQueries() {
     if (PLATFORM === 'gemini') return this._extractGemini();
     if (PLATFORM === 'pplx') return this._extractPplx();
+    if (PLATFORM === 'grok') return this._extractGpt(); // Grok's current selectors work with the standard extractor
     return this._extractGpt();
   }
 
@@ -718,7 +736,7 @@ class TOCExtension {
         index,
         chatId
       );
-      
+
       if (question.element) {
         question.element.id = questionId;
       }
@@ -799,7 +817,7 @@ class TOCExtension {
     if (event.key === "Enter" && !event.shiftKey) {
       const isInputBox = Array.from(document.querySelectorAll(CONFIG.PROMPT_TEXTAREA))
         .some(el => el === document.activeElement || el.contains(document.activeElement));
-      
+
       if (isInputBox) {
         setTimeout(() => this.createTOC(), CONSTANTS.DELAYS.ENTER_KEY);
       }

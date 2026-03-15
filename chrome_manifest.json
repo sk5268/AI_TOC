@@ -11,14 +11,18 @@
   "host_permissions": [
     "*://*.chatgpt.com/*",
     "*://*.gemini.google.com/*",
-    "*://*.perplexity.ai/*"
+    "*://*.perplexity.ai/*",
+    "*://*.claude.ai/*",
+    "*://*.grok.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "*://*.chatgpt.com/*",
         "*://*.gemini.google.com/*",
-        "*://*.perplexity.ai/*"
+        "*://*.perplexity.ai/*",
+        "*://*.claude.ai/*",
+        "*://*.grok.com/*"
       ],
       "js": [
         "code.js"
