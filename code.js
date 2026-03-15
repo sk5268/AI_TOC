@@ -58,12 +58,15 @@ const CONSTANTS = {
     TOC_TOGGLE_BTN: "toc-toggle-btn",
     SEARCH_INPUT: "toc-search-input",
     SEARCH_CLEAR: "toc-search-clear",
+    RESIZER_PREFIX: "toc-resizer-",
   },
   CLASSES: {
     TOC_HEADER: "toc-header",
     TOC_HEADER_CONTENT: "toc-header-content",
     TOC_SEARCH_CONTAINER: "toc-search-container",
     COLLAPSED: "collapsed",
+    RESIZING: "resizing",
+    RESIZER_HANDLE: "toc-resizer-handle",
   },
   DELAYS: {
     PAGE_LOAD: 3000,
@@ -78,6 +81,7 @@ const CONSTANTS = {
     COLLAPSE_BREAKPOINT: 1024,
   },
   STORAGE_KEY: `${PLATFORM}-toc-position`,
+  STORAGE_KEY_SIZE: `${PLATFORM}-toc-size`,
   STORAGE_KEY_CUSTOM_NAMES: `${PLATFORM}-toc-custom-names`,
 };
 
@@ -138,6 +142,15 @@ class PositionManager {
     return saved ? JSON.parse(saved) : null;
   }
 
+  static saveSize(width, height) {
+    localStorage.setItem(CONSTANTS.STORAGE_KEY_SIZE, JSON.stringify({ width, height }));
+  }
+
+  static getSavedSize() {
+    const saved = localStorage.getItem(CONSTANTS.STORAGE_KEY_SIZE);
+    return saved ? JSON.parse(saved) : null;
+  }
+
   static applyPosition(element, x, y) {
     const styles = {
       position: "fixed",
@@ -152,6 +165,11 @@ class PositionManager {
     Object.entries(styles).forEach(([prop, value]) => {
       element.style.setProperty(prop, value, "important");
     });
+  }
+
+  static applySize(element, width, height) {
+    if (width) element.style.setProperty("width", `${width}px`, "important");
+    if (height) element.style.setProperty("height", `${height}px`, "important");
   }
 
   static constrainToViewport(x, y, elementWidth, elementHeight) {
@@ -199,7 +217,7 @@ class DragManager {
 
   startDrag(e) {
     const isToggleBtn = e.target.closest(`#${CONSTANTS.IDS.TOC_TOGGLE_BTN}`);
-    const isInteractive = e.target.closest("input, a, button, .toc-list-item-wrapper, ul");
+    const isInteractive = e.target.closest(`input, a, button, .toc-list-item-wrapper, ul, .${CONSTANTS.CLASSES.RESIZER_HANDLE}`);
     const isCollapsed = this.element.classList.contains(CONSTANTS.CLASSES.COLLAPSED);
 
     if (isInteractive && !isToggleBtn) return;
@@ -330,6 +348,115 @@ class DragManager {
 }
 
 /**
+ * Handles resize functionality for the TOC
+ */
+class ResizeManager {
+  constructor(element, positionManager) {
+    this.element = element;
+    this.positionManager = positionManager;
+    this.isResizing = false;
+    this.resizeDir = "";
+    this.startMouseX = 0;
+    this.startMouseY = 0;
+    this.startWidth = 0;
+    this.startHeight = 0;
+    this.startX = 0;
+    this.startY = 0;
+
+    this.boundResizeSpace = this.resize.bind(this);
+    this.boundStopResize = this.stopResize.bind(this);
+
+    this.init();
+  }
+
+  init() {
+    const handles = this.element.querySelectorAll(`.${CONSTANTS.CLASSES.RESIZER_HANDLE}`);
+    handles.forEach(handle => {
+      handle.addEventListener("mousedown", (e) => this.startResize(e, handle.dataset.dir));
+    });
+  }
+
+  startResize(e, dir) {
+    if (this.element.classList.contains(CONSTANTS.CLASSES.COLLAPSED)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.isResizing = true;
+    this.resizeDir = dir;
+    this.startMouseX = e.clientX;
+    this.startMouseY = e.clientY;
+    this.startWidth = this.element.offsetWidth;
+    this.startHeight = this.element.offsetHeight;
+    
+    const rect = this.element.getBoundingClientRect();
+    this.startX = rect.left;
+    this.startY = rect.top;
+
+    this.element.classList.add(CONSTANTS.CLASSES.RESIZING);
+    document.addEventListener("mousemove", this.boundResizeSpace);
+    document.addEventListener("mouseup", this.boundStopResize);
+    
+    const cursor = window.getComputedStyle(e.target).cursor;
+    document.body.style.cursor = cursor;
+    document.body.style.userSelect = "none";
+  }
+
+  resize(e) {
+    if (!this.isResizing) return;
+
+    const deltaX = e.clientX - this.startMouseX;
+    const deltaY = e.clientY - this.startMouseY;
+
+    let newWidth = this.startWidth;
+    let newHeight = this.startHeight;
+    let newX = this.startX;
+    let newY = this.startY;
+
+    const minW = 260;
+    const minH = 200;
+    const maxW = 800;
+    const maxH = window.innerHeight * 0.9;
+
+    // Width and horizontal position
+    if (this.resizeDir.includes("e")) {
+      newWidth = Math.max(minW, Math.min(maxW, this.startWidth + deltaX));
+    } else if (this.resizeDir.includes("w")) {
+      const maxWidthFromLeft = this.startX + this.startWidth - CONSTANTS.CONSTRAINTS.PADDING;
+      newWidth = Math.max(minW, Math.min(maxW, Math.min(maxWidthFromLeft, this.startWidth - deltaX)));
+      newX = this.startX + (this.startWidth - newWidth);
+    }
+
+    // Height and vertical position
+    if (this.resizeDir.includes("s")) {
+      newHeight = Math.max(minH, Math.min(maxH, this.startHeight + deltaY));
+    } else if (this.resizeDir.includes("n")) {
+      const maxHeightFromTop = this.startY + this.startHeight - CONSTANTS.CONSTRAINTS.PADDING;
+      newHeight = Math.max(minH, Math.min(maxH, Math.min(maxHeightFromTop, this.startHeight - deltaY)));
+      newY = this.startY + (this.startHeight - newHeight);
+    }
+
+    this.positionManager.applySize(this.element, newWidth, newHeight);
+    this.positionManager.applyPosition(this.element, newX, newY);
+  }
+
+  stopResize(e) {
+    if (!this.isResizing) return;
+
+    this.isResizing = false;
+    const rect = this.element.getBoundingClientRect();
+    this.positionManager.saveSize(rect.width, rect.height);
+    this.positionManager.savePosition(rect.left, rect.top);
+
+    this.element.classList.remove(CONSTANTS.CLASSES.RESIZING);
+    document.removeEventListener("mousemove", this.boundResizeSpace);
+    document.removeEventListener("mouseup", this.boundStopResize);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }
+}
+
+/**
  * Manages search functionality
  */
 class SearchManager {
@@ -386,6 +513,15 @@ class DOMManager {
   static createTOCContainer() {
     const container = document.createElement("div");
     container.id = CONSTANTS.IDS.TOC_CONTAINER;
+
+    const directions = ["n", "s", "e", "w", "nw", "ne", "sw", "se"];
+    directions.forEach(dir => {
+      const handle = document.createElement("div");
+      handle.className = `${CONSTANTS.CLASSES.RESIZER_HANDLE} ${CONSTANTS.IDS.RESIZER_PREFIX}${dir}`;
+      handle.dataset.dir = dir;
+      container.appendChild(handle);
+    });
+
     return container;
   }
 
@@ -628,6 +764,7 @@ class TOCExtension {
   constructor() {
     this.searchManager = null;
     this.dragManager = null;
+    this.resizeManager = null;
     this.lastQueriesJson = "";
 
     this.init();
@@ -691,9 +828,11 @@ class TOCExtension {
     const queriesTextList = questions.map(q => q.text);
     const queriesJson = JSON.stringify({ chatId, questions: queriesTextList });
     const isEditing = !!document.querySelector(".toc-edit-input");
+    const isDragging = this.dragManager && this.dragManager.isDragging;
+    const isResizing = this.resizeManager && this.resizeManager.isResizing;
 
     if (isHeartbeat && queriesJson === this.lastQueriesJson) return;
-    if (isEditing) return;
+    if (isEditing || isDragging || isResizing) return;
 
     this.lastQueriesJson = queriesJson;
     this.removeExistingTOC();
@@ -751,6 +890,7 @@ class TOCExtension {
   setupTOCFunctionality(tocContainer) {
     this.setupSearchFunctionality(tocContainer);
     this.setupDragFunctionality(tocContainer);
+    this.setupResizeFunctionality(tocContainer);
     this.setupResponsiveCollapse(tocContainer);
   }
 
@@ -769,6 +909,10 @@ class TOCExtension {
     this.dragManager = new DragManager(tocContainer, PositionManager);
   }
 
+  setupResizeFunctionality(tocContainer) {
+    this.resizeManager = new ResizeManager(tocContainer, PositionManager);
+  }
+
   setupResponsiveCollapse(tocContainer) {
     if (window.innerWidth <= CONSTANTS.CONSTRAINTS.COLLAPSE_BREAKPOINT) {
       tocContainer.classList.add(CONSTANTS.CLASSES.COLLAPSED);
@@ -777,6 +921,12 @@ class TOCExtension {
 
   applyInitialPosition(tocContainer) {
     const savedPosition = PositionManager.getSavedPosition();
+    const savedSize = PositionManager.getSavedSize();
+
+    if (savedSize) {
+      PositionManager.applySize(tocContainer, savedSize.width, savedSize.height);
+    }
+
     if (savedPosition) {
       PositionManager.applyPosition(
         tocContainer,

@@ -42,6 +42,14 @@ def create_zip(manifest_source, zip_name):
     print(f"Finished creating {zip_name}\n")
 
 def main():
+    # Delete existing zip files
+    for zip_file in Path('.').glob('*.zip'):
+        try:
+            zip_file.unlink()
+            print(f"Deleted existing zip: {zip_file}")
+        except Exception as e:
+            print(f"Error deleting {zip_file}: {e}")
+
     # Create zips for both Chrome and Firefox
     create_zip('chrome_manifest.json', 'chrome.zip')
     create_zip('firefox_manifest.json', 'firefox.zip')
