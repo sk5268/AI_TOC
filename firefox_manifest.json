@@ -1,0 +1,36 @@
+{
+  "manifest_version": 2,
+  "name": "AI Assistant TOC",
+  "version": "3",
+  "description": "Adds a Table of Contents to AI Assistants",
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "*://*.chatgpt.com/*",
+    "*://*.gemini.google.com/*",
+    "*://*.perplexity.ai/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.chatgpt.com/*",
+        "*://*.gemini.google.com/*",
+        "*://*.perplexity.ai/*"
+      ],
+      "js": [
+        "code.js"
+      ],
+      "css": [
+        "code.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gpttoc@aosl.jb"
+    }
+  }
+}
