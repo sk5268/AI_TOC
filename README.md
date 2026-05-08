@@ -4,6 +4,9 @@
 
 Supports **ChatGPT**, **Google Gemini**, **Perplexity AI**, **Claude**, and **Grok** — all with a single unified extension.
 
+## Install Here
+- [Chrome Webstore](https://chromewebstore.google.com/detail/pidieofeahkafomincoajpokolgdnbjo?utm_source=item-share-cb)
+- [Mozilla Addons](https://addons.mozilla.org/en-US/firefox/addon/ai-assistant-table-of-content/)
 ---
 
 ## ✨ Features
